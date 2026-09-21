@@ -1,0 +1,467 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Welcome, {{ current_user.username }}</h2>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+    <h3 style="margin:0;">{{ display_month.strftime('%B %Y') }}</h3>
+    <div>
+      <a href="{{ url_for('dashboard', month=prev_month.strftime('%Y-%m')) }}">Previous</a>
+      <a href="{{ url_for('dashboard', month=next_month.strftime('%Y-%m')) }}">Next</a>
+    </div>
+  </div>
+
+  <div style="text-align:right; margin-bottom:12px; font-weight:700; color: var(--text);">
+    <span id="est-clock">--:--:-- EST</span>
+  </div>
+
+  <div class="weather-strip" aria-label="Weekly weather forecast for ZIP 23337">
+    <div class="weather-strip-header">23337 Forecast</div>
+    <div class="weather-days">
+      {% if forecast_groups %}
+        {% for group in forecast_groups %}
+          <div class="weather-day">
+            <div class="weather-label">{{ group.label }}</div>
+            <div class="weather-periods">
+              {% if group.day_period %}
+                <div class="weather-period">
+                  {% if group.day_period.icon %}
+                    <img class="weather-icon" src="{{ group.day_period.icon }}" alt="{{ group.day_period.shortForecast }}" />
+                  {% endif %}
+                  <div class="weather-temp">{{ group.day_period.temperature }}°{{ group.day_period.unit }}</div>
+                  <div class="weather-short">{{ group.day_period.shortForecast }}</div>
+                </div>
+              {% endif %}
+              {% if group.night_period %}
+                <div class="weather-period weather-night-period">
+                  {% if group.night_period.icon %}
+                    <img class="weather-icon" src="{{ group.night_period.icon }}" alt="{{ group.night_period.shortForecast }}" />
+                  {% endif %}
+                  <div class="weather-temp">{{ group.night_period.temperature }}°{{ group.night_period.unit }}</div>
+                  <div class="weather-short">{{ group.night_period.shortForecast }}</div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        {% for _ in range(7) %}
+          <div class="weather-day weather-placeholder">
+            <div class="weather-label">--</div>
+            <div class="weather-temp">--</div>
+            <div class="weather-short">Forecast unavailable</div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+    <thead>
+      <tr>
+        {% for weekday in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+          <th style="padding:8px; border:1px solid var(--panel-border); background: var(--day-off); color: var(--text); font-weight: 700;">{{ weekday }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in month_days %}
+        <tr>
+          {% for day in week %}
+            {% set iso_day = day.isoformat() %}
+            {% set is_today = day == today %}
+            <td class="calendar-cell calendar-day-cell {% if is_today %}calendar-today{% endif %}" data-date="{{ iso_day }}" style="background: {{ 'var(--panel)' if day.month == display_month.month else 'var(--day-off)' }};">
+              <div class="calendar-day-number {{ 'calendar-day-other-month' if day.month != display_month.month else '' }}">
+                {{ day.day }}
+              </div>
+              {% if tasks_by_date.get(iso_day) %}
+                {% for task in tasks_by_date[iso_day] %}
+                  {% set priority = (task.priority or 'Medium') | lower %}
+                  <div class="calendar-task task-clickable priority-{{ priority }} {% if task.is_complete %}task-complete{% endif %}" data-task-id="{{ task.id }}" data-task-title="{{ task.title }}" data-task-description="{{ task.description or '' }}" data-task-date="{{ task.due_date or '' }}" data-task-reminder="{{ task.reminder or '' }}" data-task-priority="{{ task.priority or 'Medium' }}" data-task-notes="{{ task.notes or '' }}" data-task-subtasks="{{ task.subtasks or '' }}">
+                    <div>{{ task.title }}</div>
+                    {% if task.is_complete %}
+                      <div class="task-complete-badge">Complete</div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div id="calendar-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h3>Add Task</h3>
+      <form action="{{ url_for('add_task') }}" method="POST" id="task-form">
+        <input type="hidden" name="date" id="selected-date">
+        <input type="text" name="title" placeholder="Task title" required>
+        <textarea name="description" placeholder="Description"></textarea>
+        <select name="priority">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+        <textarea name="notes" placeholder="Notes"></textarea>
+        <textarea name="subtasks" placeholder="Subtasks, one per line"></textarea>
+        <button type="submit">Save task</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="task-detail-modal" class="modal" style="display:none;">
+    <div class="modal-content wide">
+      <span class="close-button" data-close-target="task-detail-modal">&times;</span>
+      <h3 id="task-detail-title">Task details</h3>
+      <div id="task-detail-body"></div>
+      <div id="task-subtask-list" style="margin: 14px 0;"></div>
+      <form id="task-detail-form" method="POST">
+        <input type="hidden" name="task_id" id="task-detail-id">
+        <input type="text" name="title" id="task-detail-input-title" placeholder="Task title" required>
+        <textarea name="description" id="task-detail-input-description" placeholder="Description"></textarea>
+        <input type="date" name="date" id="task-detail-input-date">
+        <select name="priority" id="task-detail-input-priority">
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+        <textarea name="notes" id="task-detail-input-notes" placeholder="Notes"></textarea>
+        <textarea name="subtasks" id="task-detail-input-subtasks" placeholder="Subtasks, one per line"></textarea>
+        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:10px;">
+          <button type="submit">Save changes</button>
+          <button type="button" id="delete-task-button" style="background:#dc2626;">Delete task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    .weather-strip {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 12px 14px 10px;
+      margin: 0 0 14px;
+    }
+    .weather-strip-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .weather-days {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .weather-day {
+      background: var(--day-off);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 6px 5px;
+      text-align: center;
+      min-height: 116px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    .weather-periods {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 5px;
+      flex: 1;
+    }
+    .weather-period {
+      border-top: 1px solid var(--panel-border);
+      padding-top: 6px;
+    }
+    .weather-night-period {
+      opacity: 0.9;
+    }
+    .weather-label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .weather-icon {
+      display: block;
+      width: 24px;
+      height: 24px;
+      margin: 3px auto 5px;
+    }
+    .weather-temp {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .weather-short {
+      font-size: 0.62rem;
+      color: var(--text);
+      opacity: 0.9;
+      line-height: 1.2;
+      margin-top: 3px;
+    }
+    .weather-placeholder {
+      opacity: 0.75;
+    }
+    .calendar-task {
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin: 4px 0;
+      font-size: 12px;
+      line-height: 1.35;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      color: #111827;
+      font-weight: 600;
+    }
+    .calendar-task.task-complete {
+      border: 2px solid rgba(22, 163, 74, 0.7);
+      box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.25);
+      background: linear-gradient(135deg, rgba(187, 247, 208, 0.9), rgba(134, 239, 172, 0.8));
+    }
+    .task-complete-badge {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(21, 128, 61, 0.15);
+      color: #14532d;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .priority-low { background: #22c55e; color: #0b1f12; }
+    .priority-medium { background: #f59e0b; color: #2a1c00; }
+    .priority-high { background: #ef4444; color: #fff7f7; }
+    .calendar-day-cell {
+      cursor: pointer;
+      transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      position: relative;
+    }
+    .calendar-day-cell:hover {
+      background: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.5);
+      transform: translateY(-1px);
+    }
+    .calendar-today {
+      background: linear-gradient(135deg, rgba(253, 224, 71, 0.26), rgba(249, 115, 22, 0.08)) !important;
+      box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.8);
+    }
+    body.dark-mode .calendar-day-cell:hover {
+      background: #1d4ed8 !important;
+    }
+    body.dark-mode .calendar-today {
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.22), rgba(249, 115, 22, 0.14)) !important;
+      box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.9), 0 0 0 1px rgba(250, 204, 21, 0.3);
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      width: min(420px, 90vw);
+      padding: 24px;
+      position: relative;
+      color: var(--text);
+    }
+    .modal-content.wide {
+      width: min(600px, 90vw);
+    }
+    .close-button {
+      position: absolute;
+      right: 14px; top: 10px;
+      font-size: 26px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .task-clickable {
+      cursor: pointer;
+    }
+    .subtask-item {
+      display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 0.95rem;
+    }
+    .subtask-item input {
+      margin: 0;
+      width: 18px;
+      height: 18px;
+      accent-color: #16a34a;
+    }
+    .calendar-day-cell.drag-over {
+      outline: 2px dashed rgba(59, 130, 246, 0.9);
+      background: rgba(191, 219, 254, 0.7) !important;
+    }
+  </style>
+
+  <script>
+    const modal = document.getElementById('calendar-modal');
+    const taskModal = document.getElementById('task-detail-modal');
+    const estClock = document.getElementById('est-clock');
+
+    function updateEstClock() {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZoneName: 'short'
+      });
+      const parts = formatter.formatToParts(now);
+      const time = parts.filter(p => ['hour', 'minute', 'second'].includes(p.type)).map(p => p.value).join(':');
+      const zone = parts.find(p => p.type === 'timeZoneName')?.value || 'EST';
+      estClock.textContent = `${time} ${zone}`;
+    }
+
+    function renderSubtasks(rawText) {
+      const list = document.getElementById('task-subtask-list');
+      const textarea = document.getElementById('task-detail-input-subtasks');
+      list.innerHTML = '';
+      const items = (rawText || '').split(/\n+/).map(item => item.trim()).filter(Boolean);
+      if (!items.length) {
+        list.innerHTML = '<em>No subtasks yet.</em>';
+        return;
+      }
+      items.forEach((item) => {
+        const row = document.createElement('label');
+        row.className = 'subtask-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        const isComplete = item.startsWith('[x] ') || item.startsWith('✔ ');
+        checkbox.checked = isComplete;
+
+        const labelText = document.createElement('span');
+        const cleanText = item.replace(/^\[x\]\s*/, '').replace(/^✔\s*/, '').replace(/^\[ \]\s*/, '').trim();
+        labelText.textContent = cleanText;
+        labelText.dataset.text = cleanText;
+        labelText.style.textDecoration = checkbox.checked ? 'line-through' : 'none';
+
+        checkbox.addEventListener('change', () => {
+          labelText.style.textDecoration = checkbox.checked ? 'line-through' : 'none';
+          const rows = Array.from(list.querySelectorAll('.subtask-item'));
+          const nextValues = rows.map((entry) => {
+            const entryCheckbox = entry.querySelector('input');
+            const entryText = entry.querySelector('span[data-text]').dataset.text;
+            return entryCheckbox.checked ? '✔ ' + entryText : entryText;
+          });
+          textarea.value = nextValues.join('\n');
+        });
+
+        row.appendChild(checkbox);
+        row.appendChild(labelText);
+        list.appendChild(row);
+      });
+    }
+
+    updateEstClock();
+    setInterval(updateEstClock, 1000);
+
+    document.querySelectorAll('.calendar-day-cell').forEach((cell) => {
+      cell.addEventListener('dblclick', () => {
+        document.getElementById('selected-date').value = cell.dataset.date;
+        modal.style.display = 'flex';
+      });
+
+      cell.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        cell.classList.add('drag-over');
+      });
+
+      cell.addEventListener('dragleave', () => {
+        cell.classList.remove('drag-over');
+      });
+
+      cell.addEventListener('drop', (event) => {
+        event.preventDefault();
+        cell.classList.remove('drag-over');
+        const taskId = event.dataTransfer.getData('text/plain');
+        if (!taskId) return;
+        const targetDate = cell.dataset.date;
+        fetch('/tasks/' + taskId + '/move', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: 'date=' + encodeURIComponent(targetDate)
+        }).then((response) => response.ok ? response.json() : Promise.reject()).then(() => {
+          window.location.reload();
+        }).catch(() => {
+          alert('There was a problem moving this task.');
+        });
+      });
+    });
+
+    document.querySelectorAll('.close-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = button.dataset.closeTarget || 'calendar-modal';
+        document.getElementById(target).style.display = 'none';
+      });
+    });
+
+    window.addEventListener('click', (event) => {
+      if (event.target === modal) modal.style.display = 'none';
+      if (event.target === taskModal) taskModal.style.display = 'none';
+    });
+
+    document.getElementById('delete-task-button').addEventListener('click', () => {
+      const id = document.getElementById('task-detail-id').value;
+      if (!id) return;
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/tasks/' + id + '/delete';
+      document.body.appendChild(form);
+      form.submit();
+    });
+
+    document.querySelectorAll('.task-clickable').forEach((taskEl) => {
+      taskEl.setAttribute('draggable', 'true');
+      taskEl.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', taskEl.dataset.taskId);
+      });
+
+      taskEl.addEventListener('click', () => {
+        const form = document.getElementById('task-detail-form');
+        const id = taskEl.dataset.taskId;
+        form.action = '/tasks/' + id + '/update';
+        document.getElementById('task-detail-id').value = id;
+        document.getElementById('task-detail-title').textContent = taskEl.dataset.taskTitle;
+        document.getElementById('task-detail-body').innerHTML = [
+          '<strong>Priority:</strong> ' + (taskEl.dataset.taskPriority || 'Medium') + '<br>',
+          '<strong>Due date:</strong> ' + (taskEl.dataset.taskDate || 'No date') + '<br>',
+          '<strong>Description:</strong> ' + ((taskEl.dataset.taskDescription || 'No description').replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '<br>',
+          '<strong>Notes:</strong> ' + ((taskEl.dataset.taskNotes || 'No notes').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+        ].join('');
+        document.getElementById('task-detail-input-title').value = taskEl.dataset.taskTitle || '';
+        document.getElementById('task-detail-input-description').value = taskEl.dataset.taskDescription || '';
+        document.getElementById('task-detail-input-date').value = taskEl.dataset.taskDate || '';
+        document.getElementById('task-detail-input-priority').value = taskEl.dataset.taskPriority || 'Medium';
+        document.getElementById('task-detail-input-notes').value = taskEl.dataset.taskNotes || '';
+        document.getElementById('task-detail-input-subtasks').value = taskEl.dataset.taskSubtasks || '';
+        renderSubtasks(taskEl.dataset.taskSubtasks || '');
+        taskModal.style.display = 'flex';
+      });
+    });
+  </script>
+
+</div>
+{% endblock %}

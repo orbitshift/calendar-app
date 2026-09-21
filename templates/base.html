@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Team Calendar</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --panel-border: #dfe7f1;
+        --header-bg: #1f3a5f;
+        --text: #1e2a38;
+        --muted: #4b5563;
+        --input-bg: #ffffff;
+        --input-border: #d8e0ea;
+        --flash-bg: #eaf6ea;
+        --flash-text: #1e5d32;
+        --task-bg: #dbeafe;
+        --day-muted: #6b7280;
+        --day-off: #f8fafc;
+      }
+
+      body.dark-mode {
+        --bg: #111827;
+        --panel: #1f2937;
+        --panel-border: #374151;
+        --header-bg: #0f172a;
+        --text: #e5e7eb;
+        --muted: #cbd5e1;
+        --input-bg: #111827;
+        --input-border: #475569;
+        --flash-bg: #1d3a2f;
+        --flash-text: #a7f3d0;
+        --task-bg: #1d4ed8;
+        --day-muted: #9ca3af;
+        --day-off: #0f172a;
+      }
+
+      body.weather-theme-stormy {
+        --bg: #0b1320;
+        --panel: rgba(15, 23, 42, 0.82);
+        --panel-border: rgba(148, 163, 184, 0.35);
+        --header-bg: #122338;
+        --text: #e2e8f0;
+        --muted: #cbd5e1;
+        --input-bg: rgba(15, 23, 42, 0.8);
+        --input-border: rgba(148, 163, 184, 0.5);
+        --flash-bg: rgba(30, 64, 175, 0.2);
+        --flash-text: #dbeafe;
+        --task-bg: rgba(59, 130, 246, 0.38);
+        --day-muted: #9fb2c9;
+        --day-off: rgba(15, 23, 42, 0.75);
+      }
+
+      body.weather-theme-cloudy {
+        --bg: #dfeaf5;
+        --panel: rgba(255, 255, 255, 0.8);
+        --panel-border: rgba(100, 116, 139, 0.2);
+        --header-bg: #4b647d;
+        --text: #1f2937;
+        --muted: #475569;
+        --input-bg: rgba(255, 255, 255, 0.72);
+        --input-border: rgba(100, 116, 139, 0.3);
+        --flash-bg: rgba(148, 163, 184, 0.25);
+        --flash-text: #1f2937;
+        --task-bg: rgba(191, 219, 254, 0.7);
+        --day-muted: #64748b;
+        --day-off: rgba(148, 163, 184, 0.15);
+      }
+
+      body.weather-theme-sunny {
+        --bg: #fef3c7;
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-border: rgba(251, 191, 36, 0.3);
+        --header-bg: #b45309;
+        --text: #2c1a00;
+        --muted: #7c2d12;
+        --input-bg: rgba(255, 255, 255, 0.7);
+        --input-border: rgba(251, 191, 36, 0.4);
+        --flash-bg: rgba(254, 240, 138, 0.3);
+        --flash-text: #713f12;
+        --task-bg: rgba(253, 224, 71, 0.75);
+        --day-muted: #9a5a1c;
+        --day-off: rgba(254, 249, 195, 0.5);
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        position: relative;
+        min-height: 100vh;
+        overflow-x: hidden;
+        transition: background 0.5s ease, color 0.3s ease;
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      body.weather-theme-stormy::before {
+        background:
+          radial-gradient(circle at 15% 18%, rgba(148, 163, 184, 0.18), transparent 18%),
+          radial-gradient(circle at 80% 12%, rgba(96, 165, 250, 0.15), transparent 22%),
+          linear-gradient(180deg, rgba(14, 116, 144, 0.40), rgba(15, 23, 42, 0.88));
+      }
+
+      body.weather-theme-sunny::before {
+        background:
+          radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.9), transparent 10%),
+          radial-gradient(circle at 22% 18%, rgba(251, 191, 36, 0.9), transparent 8%),
+          linear-gradient(180deg, rgba(253, 224, 71, 0.28), rgba(254, 249, 195, 0.18));
+      }
+
+      body.weather-theme-sunny::after {
+        background:
+          radial-gradient(circle at 22% 18%, rgba(251, 191, 36, 0.7) 0 8%, transparent 8.5%),
+          linear-gradient(90deg, transparent 0 45%, rgba(253, 224, 71, 0.24) 45% 55%, transparent 55%),
+          linear-gradient(0deg, transparent 0 45%, rgba(253, 224, 71, 0.24) 45% 55%, transparent 55%);
+        opacity: 0.9;
+        animation: sunPulse 4s ease-in-out infinite;
+      }
+
+      .weather-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0;
+        transition: opacity 0.35s ease;
+      }
+
+      body.weather-theme-stormy .weather-canvas {
+        opacity: 1;
+      }
+
+      nav, .container {
+        position: relative;
+        z-index: 1;
+      }
+
+      @keyframes sunPulse {
+        0%, 100% { transform: scale(1); opacity: 0.7; }
+        50% { transform: scale(1.08); opacity: 1; }
+      }
+
+      body.weather-theme-cloudy::before {
+        background:
+          radial-gradient(circle at 20% 30%, rgba(255,255,255,0.9), transparent 11%),
+          radial-gradient(circle at 35% 25%, rgba(255,255,255,0.8), transparent 13%),
+          radial-gradient(circle at 70% 28%, rgba(255,255,255,0.75), transparent 15%),
+          linear-gradient(180deg, rgba(148, 163, 184, 0.26), rgba(226, 232, 240, 0.42));
+      }
+
+      body.weather-theme-cloudy::after {
+        background:
+          radial-gradient(circle at 20% 24%, rgba(255,255,255,0.4) 0 8%, transparent 8.5%),
+          radial-gradient(circle at 35% 22%, rgba(255,255,255,0.35) 0 9%, transparent 9.5%),
+          radial-gradient(circle at 72% 26%, rgba(255,255,255,0.4) 0 10%, transparent 10.5%);
+        opacity: 0.8;
+        animation: cloudDrift 12s ease-in-out infinite alternate;
+      }
+
+      @keyframes cloudDrift {
+        0% { transform: translateX(-10px); }
+        100% { transform: translateX(10px); }
+      }
+      .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+      .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+      nav { display: flex; justify-content: space-between; padding: 16px 24px; background: var(--header-bg); color: white; }
+      nav a { color: white; text-decoration: none; margin-left: 12px; }
+      form { display: flex; flex-direction: column; gap: 12px; }
+      input, textarea, select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); }
+      button { background: #2a7ae2; color: white; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+      .flash { padding: 12px; background: var(--flash-bg); color: var(--flash-text); border-radius: 8px; margin-bottom: 16px; }
+      .task-list { list-style: none; padding: 0; }
+      .task-item { padding: 16px; border: 1px solid var(--panel-border); border-radius: 10px; margin-bottom: 12px; background: rgba(255,255,255,0.02); }
+      .task-meta { color: var(--muted); font-size: 0.9em; }
+      .calendar-cell {
+        vertical-align: top;
+        width: 14%;
+        min-height: 130px;
+        padding: 10px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+      }
+      .calendar-day-number {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text);
+      }
+      .calendar-day-other-month {
+        color: var(--day-muted);
+      }
+      .calendar-task {
+        background: var(--task-bg);
+        border-radius: 6px;
+        padding: 6px 8px;
+        margin: 4px 0;
+        font-size: 12px;
+        line-height: 1.35;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      .mode-toggle {
+        display: flex; align-items: center; gap: 10px; color: white; font-size: 0.95rem;
+      }
+      .weather-toggle {
+        display: flex; align-items: center; gap: 10px; color: white; font-size: 0.95rem;
+      }
+      .switch {
+        position: relative; display: inline-block; width: 46px; height: 24px;
+      }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider {
+        position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px;
+      }
+      .slider:before {
+        position: absolute; content: ""; height: 18px; width: 18px; left: 3px; top: 3px; background-color: white; transition: .3s; border-radius: 50%;
+      }
+      input:checked + .slider { background-color: #3b82f6; }
+      input:checked + .slider:before { transform: translateX(22px); }
+      body.weather-bg-off::before,
+      body.weather-bg-off::after,
+      body.weather-bg-off .weather-canvas {
+        opacity: 0 !important;
+      }
+    </style>
+  </head>
+  <body class="{% if weather_theme %}weather-theme-{{ weather_theme }}{% endif %}">
+    <canvas id="weather-canvas" class="weather-canvas" aria-hidden="true"></canvas>
+    <nav>
+      <div><strong>Team Calendar</strong></div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login') }}">Login</a>
+          <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+        <div class="weather-toggle">
+          <span>Weather</span>
+          <label class="switch">
+            <input type="checkbox" id="weatherToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="mode-toggle">
+          <span>Dark</span>
+          <label class="switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for message in messages %}
+            <div class="flash">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+
+    <script>
+      const toggle = document.getElementById('darkModeToggle');
+      const weatherToggle = document.getElementById('weatherToggle');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const savedMode = localStorage.getItem('darkMode');
+      const savedWeather = localStorage.getItem('weatherBackground');
+
+      if (savedMode === 'enabled' || (!savedMode && prefersDark)) {
+        document.body.classList.add('dark-mode');
+        toggle.checked = true;
+      }
+
+      toggle.addEventListener('change', () => {
+        const enabled = toggle.checked;
+        document.body.classList.toggle('dark-mode', enabled);
+        localStorage.setItem('darkMode', enabled ? 'enabled' : 'disabled');
+      });
+
+      const enableWeatherBackground = (enabled) => {
+        document.body.classList.toggle('weather-bg-off', !enabled);
+        localStorage.setItem('weatherBackground', enabled ? 'enabled' : 'disabled');
+      };
+
+      if (savedWeather === 'disabled') {
+        weatherToggle.checked = false;
+        enableWeatherBackground(false);
+      } else {
+        weatherToggle.checked = true;
+        enableWeatherBackground(true);
+      }
+
+      weatherToggle.addEventListener('change', () => {
+        enableWeatherBackground(weatherToggle.checked);
+      });
+
+      const stormCanvas = document.getElementById('weather-canvas');
+      const stormCtx = stormCanvas.getContext('2d');
+      let raindrops = [];
+      let lightningBolts = [];
+
+      function resizeStormCanvas() {
+        const ratio = window.devicePixelRatio || 1;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        stormCanvas.width = width * ratio;
+        stormCanvas.height = height * ratio;
+        stormCanvas.style.width = width + 'px';
+        stormCanvas.style.height = height + 'px';
+        stormCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+        const dropCount = Math.min(180, Math.max(110, Math.round(width / 12)));
+        raindrops = Array.from({ length: dropCount }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          length: 8 + Math.random() * 16,
+          speed: 2.5 + Math.random() * 4.5,
+          drift: -0.18 + Math.random() * 0.36,
+          opacity: 0.2 + Math.random() * 0.6,
+          radius: 1 + Math.random() * 2.2
+        }));
+      }
+
+      function drawStorm() {
+        if (!document.body.classList.contains('weather-theme-stormy') || document.body.classList.contains('weather-bg-off')) {
+          stormCtx.clearRect(0, 0, stormCanvas.width, stormCanvas.height);
+          return;
+        }
+
+        const width = stormCanvas.width / (window.devicePixelRatio || 1);
+        const height = stormCanvas.height / (window.devicePixelRatio || 1);
+
+        stormCtx.clearRect(0, 0, width, height);
+
+        if (Math.random() < 0.008 && lightningBolts.length < 3) {
+          lightningBolts.push({
+            x: Math.random() * width,
+            y: 0,
+            endX: Math.random() * width,
+            endY: 80 + Math.random() * (height * 0.42),
+            life: 7 + Math.random() * 10,
+            opacity: 0.25 + Math.random() * 0.5
+          });
+        }
+
+        for (const drop of raindrops) {
+          drop.y += drop.speed;
+          drop.x += drop.drift;
+
+          if (drop.y > height + 20) {
+            drop.y = -20;
+            drop.x = Math.random() * width;
+          }
+
+          if (drop.x < -20) drop.x = width + 20;
+          if (drop.x > width + 20) drop.x = -20;
+
+          stormCtx.beginPath();
+          stormCtx.moveTo(drop.x, drop.y);
+          stormCtx.lineTo(drop.x + drop.drift * 2, drop.y - drop.length);
+          stormCtx.strokeStyle = `rgba(125, 211, 252, ${drop.opacity})`;
+          stormCtx.lineWidth = drop.radius;
+          stormCtx.stroke();
+
+          stormCtx.beginPath();
+          stormCtx.fillStyle = `rgba(191, 219, 254, ${drop.opacity * 0.8})`;
+          stormCtx.arc(drop.x + drop.drift * 2, drop.y - drop.length, drop.radius * 0.7, 0, Math.PI * 2);
+          stormCtx.fill();
+        }
+
+        lightningBolts = lightningBolts.filter((bolt) => bolt.life > 0);
+
+        for (const bolt of lightningBolts) {
+          bolt.life -= 1;
+          const segments = 5 + Math.floor(Math.random() * 5);
+          stormCtx.beginPath();
+          stormCtx.moveTo(bolt.x, bolt.y);
+          let x = bolt.x;
+          let y = bolt.y;
+
+          for (let i = 0; i < segments; i++) {
+            x += (bolt.endX - bolt.x) / segments + (Math.random() - 0.5) * 18;
+            y += (bolt.endY - bolt.y) / segments + (Math.random() - 0.5) * 18;
+            stormCtx.lineTo(x, y);
+          }
+
+          stormCtx.strokeStyle = `rgba(255, 255, 255, ${bolt.opacity})`;
+          stormCtx.lineWidth = 1.8 + Math.random() * 2.4;
+          stormCtx.shadowBlur = 12;
+          stormCtx.shadowColor = 'rgba(191, 219, 254, 0.8)';
+          stormCtx.stroke();
+          stormCtx.shadowBlur = 0;
+
+          stormCtx.fillStyle = `rgba(255, 255, 255, ${bolt.opacity * 0.25})`;
+          stormCtx.fillRect(0, 0, width, height);
+        }
+      }
+
+      function animateStorm() {
+        drawStorm();
+        requestAnimationFrame(animateStorm);
+      }
+
+      resizeStormCanvas();
+      animateStorm();
+      window.addEventListener('resize', resizeStormCanvas);
+    </script>
+  </body>
+</html>
