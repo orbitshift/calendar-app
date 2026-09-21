@@ -19,6 +19,7 @@
         --task-bg: #dbeafe;
         --day-muted: #6b7280;
         --day-off: #f8fafc;
+        --base-font-size: 18px;
       }
 
       body.dark-mode {
@@ -104,8 +105,13 @@
         --day-off: #0f172a;
       }
 
+      html {
+        font-size: var(--base-font-size);
+      }
+
       body {
         font-family: Arial, sans-serif;
+        font-size: 1rem;
         margin: 0;
         background: var(--bg);
         color: var(--text);
@@ -199,8 +205,8 @@
       nav { display: flex; justify-content: space-between; padding: 16px 24px; background: var(--header-bg); color: white; }
       nav a { color: white; text-decoration: none; margin-left: 12px; }
       form { display: flex; flex-direction: column; gap: 12px; }
-      input, textarea, select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); }
-      button { background: #2a7ae2; color: white; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+      input, textarea, select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 1rem; }
+      button { background: #2a7ae2; color: white; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 1rem; }
       .flash { padding: 12px; background: var(--flash-bg); color: var(--flash-text); border-radius: 8px; margin-bottom: 16px; }
       .task-list { list-style: none; padding: 0; }
       .task-item { padding: 16px; border: 1px solid var(--panel-border); border-radius: 10px; margin-bottom: 12px; background: rgba(255,255,255,0.02); }
