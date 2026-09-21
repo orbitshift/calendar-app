@@ -85,6 +85,25 @@
         --day-off: rgba(254, 249, 195, 0.5);
       }
 
+      body.dark-mode,
+      body.dark-mode.weather-theme-stormy,
+      body.dark-mode.weather-theme-cloudy,
+      body.dark-mode.weather-theme-sunny {
+        --bg: #111827;
+        --panel: #1f2937;
+        --panel-border: #374151;
+        --header-bg: #0f172a;
+        --text: #e5e7eb;
+        --muted: #cbd5e1;
+        --input-bg: #111827;
+        --input-border: #475569;
+        --flash-bg: #1d3a2f;
+        --flash-text: #a7f3d0;
+        --task-bg: #1d4ed8;
+        --day-muted: #9ca3af;
+        --day-off: #0f172a;
+      }
+
       body {
         font-family: Arial, sans-serif;
         margin: 0;
@@ -285,33 +304,37 @@
       const savedMode = localStorage.getItem('darkMode');
       const savedWeather = localStorage.getItem('weatherBackground');
 
-      if (savedMode === 'enabled' || (!savedMode && prefersDark)) {
-        document.body.classList.add('dark-mode');
-        toggle.checked = true;
-      }
-
-      toggle.addEventListener('change', () => {
-        const enabled = toggle.checked;
-        document.body.classList.toggle('dark-mode', enabled);
-        localStorage.setItem('darkMode', enabled ? 'enabled' : 'disabled');
-      });
-
-      const enableWeatherBackground = (enabled) => {
-        document.body.classList.toggle('weather-bg-off', !enabled);
-        localStorage.setItem('weatherBackground', enabled ? 'enabled' : 'disabled');
+      const syncDarkMode = (enabled) => {
+        const shouldEnable = Boolean(enabled);
+        document.body.classList.toggle('dark-mode', shouldEnable);
+        if (toggle) {
+          toggle.checked = shouldEnable;
+        }
+        localStorage.setItem('darkMode', shouldEnable ? 'enabled' : 'disabled');
       };
 
-      if (savedWeather === 'disabled') {
-        weatherToggle.checked = false;
-        enableWeatherBackground(false);
-      } else {
-        weatherToggle.checked = true;
-        enableWeatherBackground(true);
+      const syncWeatherBackground = (enabled) => {
+        const shouldEnable = Boolean(enabled);
+        document.body.classList.toggle('weather-bg-off', !shouldEnable);
+        if (weatherToggle) {
+          weatherToggle.checked = shouldEnable;
+        }
+        localStorage.setItem('weatherBackground', shouldEnable ? 'enabled' : 'disabled');
+      };
+
+      const initialDarkEnabled = savedMode === 'enabled' || (!savedMode && prefersDark);
+      syncDarkMode(initialDarkEnabled);
+
+      if (toggle) {
+        toggle.addEventListener('change', () => syncDarkMode(toggle.checked));
       }
 
-      weatherToggle.addEventListener('change', () => {
-        enableWeatherBackground(weatherToggle.checked);
-      });
+      const initialWeatherEnabled = savedWeather !== 'disabled';
+      syncWeatherBackground(initialWeatherEnabled);
+
+      if (weatherToggle) {
+        weatherToggle.addEventListener('change', () => syncWeatherBackground(weatherToggle.checked));
+      }
 
       const stormCanvas = document.getElementById('weather-canvas');
       const stormCtx = stormCanvas.getContext('2d');
