@@ -54,7 +54,7 @@
     </div>
   </div>
 
-  <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+  <table class="calendar-month-table">
     <thead>
       <tr>
         {% for weekday in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
@@ -265,12 +265,26 @@
     .weather-placeholder {
       opacity: 0.75;
     }
+    .calendar-month-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      table-layout: fixed;
+      height: min(64vh, 760px);
+    }
+    .calendar-month-table thead th {
+      height: 42px;
+      vertical-align: middle;
+    }
+    .calendar-month-table tbody tr {
+      height: calc((min(64vh, 760px) - 42px) / 5);
+    }
     .calendar-task {
       border-radius: 6px;
       padding: 6px 8px;
       margin: 4px 0;
-      font-size: 0.8rem;
-      line-height: 1.35;
+      font-size: 0.74rem;
+      line-height: 1.2;
       word-break: break-word;
       overflow-wrap: anywhere;
       color: #111827;
@@ -301,6 +315,10 @@
       cursor: pointer;
       transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
       position: relative;
+      height: calc((min(64vh, 760px) - 42px) / 5);
+      vertical-align: top;
+      padding: 6px;
+      overflow: hidden;
     }
     .calendar-day-cell:hover {
       background: #dbeafe !important;
@@ -547,6 +565,8 @@
     let tetrisPlayerInput = '';
     let tetrisGameRunning = false;
     let tetrisFrameHandle = null;
+    let tetrisDropInterval = 500;
+    let tetrisLastDropTime = 0;
 
     function tetrisSeed() {
       tetrisBoard = Array.from({ length: tetrisRows }, () => Array(tetrisCols).fill(null));
@@ -555,6 +575,7 @@
       tetrisNext = tetrisCreatePiece();
       tetrisPlayerInput = '';
       tetrisGameRunning = true;
+      tetrisLastDropTime = 0;
     }
 
     function tetrisCreatePiece() {
@@ -702,9 +723,15 @@
       tetrisCtx.fillText('Score: ' + tetrisScore, 10, 22);
     }
 
-    function tetrisRunFrame() {
+    function tetrisRunFrame(timestamp) {
       if (!tetrisGameRunning) return;
-      tetrisDropStep();
+      if (!tetrisLastDropTime) {
+        tetrisLastDropTime = timestamp;
+      }
+      if (timestamp - tetrisLastDropTime >= tetrisDropInterval) {
+        tetrisDropStep();
+        tetrisLastDropTime = timestamp;
+      }
       tetrisDrawBoard();
       tetrisFrameHandle = requestAnimationFrame(tetrisRunFrame);
     }
@@ -720,6 +747,7 @@
       } else {
         tetrisOverlay.classList.add('hidden');
         if (tetrisFrameHandle) cancelAnimationFrame(tetrisFrameHandle);
+        tetrisLastDropTime = 0;
       }
     }
 
