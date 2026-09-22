@@ -19,7 +19,12 @@ app.config['SECRET_KEY'] = 'dev-secret-key-change-me'
 app.config['WTF_CSRF_ENABLED'] = False
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.environ.get('CALENDAR_DB_PATH', BASE_DIR / 'calendar.db'))
+raw_db_path = os.environ.get('CALENDAR_DB_PATH')
+if raw_db_path:
+    DB_PATH = Path(raw_db_path).expanduser()
+else:
+    DB_PATH = BASE_DIR / 'calendar.db'
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 WEATHER_ZIP_CODE = '23337'
 WEATHER_LATITUDE = 36.8354
 WEATHER_LONGITUDE = -76.0433
