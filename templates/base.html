@@ -200,10 +200,43 @@
         0% { transform: translateX(-10px); }
         100% { transform: translateX(10px); }
       }
-      .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+      .container {
+        max-width: calc(100vw - 290px);
+        margin: 24px 0 40px 260px;
+        padding: 20px;
+      }
       .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-      nav { display: flex; justify-content: space-between; padding: 16px 24px; background: var(--header-bg); color: white; }
-      nav a { color: white; text-decoration: none; margin-left: 12px; }
+      nav {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 220px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 20px 16px;
+        background: var(--header-bg);
+        color: white;
+        box-sizing: border-box;
+      }
+      nav .brand {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      nav .nav-links {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      nav a {
+        color: white;
+        text-decoration: none;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.06);
+      }
       form { display: flex; flex-direction: column; gap: 12px; }
       input, textarea, select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 1rem; }
       button { background: #2a7ae2; color: white; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 1rem; }
@@ -252,10 +285,16 @@
         overflow-wrap: anywhere;
       }
       .mode-toggle {
-        display: flex; align-items: center; gap: 10px; color: white; font-size: 0.95rem;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px; color: white; font-size: 0.95rem;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.06);
       }
       .weather-toggle {
-        display: flex; align-items: center; gap: 10px; color: white; font-size: 0.95rem;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px; color: white; font-size: 0.95rem;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.06);
       }
       .switch {
         position: relative; display: inline-block; width: 46px; height: 24px;
@@ -279,8 +318,8 @@
   <body class="{% if weather_theme %}weather-theme-{{ weather_theme }}{% endif %}">
     <canvas id="weather-canvas" class="weather-canvas" aria-hidden="true"></canvas>
     <nav>
-      <div><strong>Team Calendar</strong></div>
-      <div style="display:flex; align-items:center; gap:14px;">
+      <div class="brand">Team Calendar</div>
+      <div class="nav-links">
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}">Dashboard</a>
           <a href="{{ url_for('logout') }}">Logout</a>
@@ -288,20 +327,20 @@
           <a href="{{ url_for('login') }}">Login</a>
           <a href="{{ url_for('register') }}">Register</a>
         {% endif %}
-        <div class="weather-toggle">
-          <span>Weather</span>
-          <label class="switch">
-            <input type="checkbox" id="weatherToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div class="mode-toggle">
-          <span>Dark</span>
-          <label class="switch">
-            <input type="checkbox" id="darkModeToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
+      </div>
+      <div class="weather-toggle">
+        <span>Weather</span>
+        <label class="switch">
+          <input type="checkbox" id="weatherToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="mode-toggle">
+        <span>Dark</span>
+        <label class="switch">
+          <input type="checkbox" id="darkModeToggle">
+          <span class="slider"></span>
+        </label>
       </div>
     </nav>
 
