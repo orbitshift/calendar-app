@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card" style="padding-top: 18px; padding-bottom: 18px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-    <h3 style="margin:0; font-size: 1.4rem;">{{ display_month.strftime('%B %Y') }}</h3>
-    <div>
-      <a href="{{ url_for('dashboard', month=prev_month.strftime('%Y-%m')) }}">Previous</a>
-      <a href="{{ url_for('dashboard', month=next_month.strftime('%Y-%m')) }}">Next</a>
+<div class="card" style="padding-top: 12px; padding-bottom: 12px;">
+  <div class="month-header-row">
+    <h3 class="month-year-title">{{ display_month.strftime('%B %Y') }}</h3>
+    <div class="month-nav">
+      <a class="month-nav-link" href="{{ url_for('dashboard', month=prev_month.strftime('%Y-%m')) }}">Previous</a>
+      <a class="month-nav-link" href="{{ url_for('dashboard', month=next_month.strftime('%Y-%m')) }}">Next</a>
     </div>
   </div>
 
-  <div style="text-align:right; margin-bottom:12px; font-weight:700; color: var(--text);">
+  <div class="clock-row">
     <span id="est-clock">--:--:-- EST</span>
   </div>
 
@@ -191,6 +191,41 @@
       margin-top: 8px;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+    }
+    .month-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 12px;
+    }
+    .month-year-title {
+      margin: 0;
+      font-size: 1.2rem;
+      line-height: 1.2;
+    }
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .month-nav-link {
+      color: #dbeafe !important;
+      text-decoration: none;
+      font-weight: 700;
+      background: rgba(59, 130, 246, 0.22);
+      border: 1px solid rgba(191, 219, 254, 0.55);
+      padding: 4px 8px;
+      border-radius: 999px;
+      line-height: 1.2;
+    }
+    .clock-row {
+      text-align: right;
+      margin-bottom: 10px;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.9rem;
     }
     .weather-strip {
       background: var(--panel);
