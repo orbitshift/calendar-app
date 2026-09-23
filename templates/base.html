@@ -200,9 +200,26 @@
         0% { transform: translateX(-10px); }
         100% { transform: translateX(10px); }
       }
-      .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+      .container { max-width: 1200px; margin: 14px auto 20px; padding: 0 20px 20px; }
       .card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-      nav { display: flex; justify-content: space-between; padding: 16px 24px; background: var(--header-bg); color: white; }
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 24px;
+        padding: 10px 24px 12px;
+        background: rgba(31, 58, 95, 0.96);
+        color: white;
+        overflow: hidden;
+        transition: height 0.2s ease, opacity 0.2s ease;
+      }
+      nav:hover,
+      nav:focus-within {
+        height: 60px;
+      }
       nav a { color: white; text-decoration: none; margin-left: 12px; }
       form { display: flex; flex-direction: column; gap: 12px; }
       input, textarea, select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text); font-size: 1rem; }
