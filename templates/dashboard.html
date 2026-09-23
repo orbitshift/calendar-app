@@ -75,8 +75,13 @@
               {% if tasks_by_date.get(iso_day) %}
                 {% for task in tasks_by_date[iso_day] %}
                   {% set priority = (task.priority or 'Medium') | lower %}
-                  <div class="calendar-task task-clickable priority-{{ priority }} {% if task.is_complete %}task-complete{% endif %}" data-task-id="{{ task.id }}" data-task-title="{{ task.title }}" data-task-description="{{ task.description or '' }}" data-task-date="{{ task.due_date or '' }}" data-task-reminder="{{ task.reminder or '' }}" data-task-priority="{{ task.priority or 'Medium' }}" data-task-notes="{{ task.notes or '' }}" data-task-subtasks="{{ task.subtasks or '' }}">
+                  <div class="calendar-task task-clickable priority-{{ priority }} {% if task.is_complete %}task-complete{% endif %}" data-task-id="{{ task.id }}" data-task-title="{{ task.title }}" data-task-description="{{ task.description or '' }}" data-task-date="{{ task.due_date or '' }}" data-task-reminder="{{ task.reminder or '' }}" data-task-priority="{{ task.priority or 'Medium' }}" data-task-notes="{{ task.notes or '' }}" data-task-subtasks="{{ task.subtasks or '' }}" data-task-recurrence-type="{{ task.recurrence_type or '' }}" data-task-recurrence-interval="{{ task.recurrence_interval or 1 }}" data-task-span-days="{{ task.span_days or 1 }}">
                     <div>{{ task.title }}</div>
+                    {% if task.recurrence_type %}
+                      <div class="task-recurrence-label">{{ task.recurrence_type|title }}{% if task.recurrence_interval and task.recurrence_interval > 1 %} {{ task.recurrence_interval }}{% endif %}</div>
+                    {% elif task.span_days and task.span_days > 1 %}
+                      <div class="task-recurrence-label">{{ task.span_days }} day span</div>
+                    {% endif %}
                     {% if task.is_complete %}
                       <div class="task-complete-badge">Complete</div>
                     {% endif %}
@@ -114,6 +119,15 @@
           <option value="Medium" selected>Medium</option>
           <option value="High">High</option>
         </select>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <select name="recurrence_type">
+            <option value="">One-time</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <input type="number" name="recurrence_interval" min="1" max="52" value="1" placeholder="Every X">
+        </div>
+        <input type="number" name="span_days" min="1" max="31" value="1" placeholder="Days to span">
         <textarea name="notes" placeholder="Notes"></textarea>
         <textarea name="subtasks" placeholder="Subtasks, one per line"></textarea>
         <button type="submit">Save task</button>
@@ -137,6 +151,15 @@
           <option value="Medium">Medium</option>
           <option value="High">High</option>
         </select>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <select name="recurrence_type" id="task-detail-input-recurrence-type">
+            <option value="">One-time</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <input type="number" name="recurrence_interval" id="task-detail-input-recurrence-interval" min="1" max="52" value="1" placeholder="Every X">
+        </div>
+        <input type="number" name="span_days" id="task-detail-input-span-days" min="1" max="31" value="1" placeholder="Days to span">
         <textarea name="notes" id="task-detail-input-notes" placeholder="Notes"></textarea>
         <textarea name="subtasks" id="task-detail-input-subtasks" placeholder="Subtasks, one per line"></textarea>
         <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:10px;">
@@ -331,6 +354,18 @@
       box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.25);
       background: linear-gradient(135deg, rgba(187, 247, 208, 0.9), rgba(134, 239, 172, 0.8));
       color: #0b1f12;
+    }
+    .task-recurrence-label {
+      display: inline-block;
+      margin-top: 3px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.10);
+      padding: 2px 6px;
+      font-size: 0.56rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.2;
     }
     .task-complete-badge {
       display: inline-block;
@@ -563,6 +598,9 @@
         document.getElementById('task-detail-input-description').value = taskEl.dataset.taskDescription || '';
         document.getElementById('task-detail-input-date').value = taskEl.dataset.taskDate || '';
         document.getElementById('task-detail-input-priority').value = taskEl.dataset.taskPriority || 'Medium';
+        document.getElementById('task-detail-input-recurrence-type').value = taskEl.dataset.taskRecurrenceType || '';
+        document.getElementById('task-detail-input-recurrence-interval').value = taskEl.dataset.taskRecurrenceInterval || '1';
+        document.getElementById('task-detail-input-span-days').value = taskEl.dataset.taskSpanDays || '1';
         document.getElementById('task-detail-input-notes').value = taskEl.dataset.taskNotes || '';
         document.getElementById('task-detail-input-subtasks').value = taskEl.dataset.taskSubtasks || '';
         renderSubtasks(taskEl.dataset.taskSubtasks || '');

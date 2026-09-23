@@ -2,7 +2,7 @@ import calendar
 import json
 import os
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -88,6 +88,9 @@ def init_db():
                 priority TEXT DEFAULT 'Medium',
                 notes TEXT,
                 subtasks TEXT,
+                recurrence_type TEXT DEFAULT '',
+                recurrence_interval INTEGER DEFAULT 1,
+                span_days INTEGER DEFAULT 1,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
@@ -102,6 +105,12 @@ def migrate_db_schema():
             conn.execute('ALTER TABLE tasks ADD COLUMN notes TEXT')
         if 'subtasks' not in columns:
             conn.execute('ALTER TABLE tasks ADD COLUMN subtasks TEXT')
+        if 'recurrence_type' not in columns:
+            conn.execute('ALTER TABLE tasks ADD COLUMN recurrence_type TEXT DEFAULT ""')
+        if 'recurrence_interval' not in columns:
+            conn.execute('ALTER TABLE tasks ADD COLUMN recurrence_interval INTEGER DEFAULT 1')
+        if 'span_days' not in columns:
+            conn.execute('ALTER TABLE tasks ADD COLUMN span_days INTEGER DEFAULT 1')
 
 
 def ensure_default_admin():
@@ -154,6 +163,79 @@ def task_is_complete(task):
         line.startswith('[x]') or line.startswith('[X]') or line.startswith('✔') or line.startswith('✓')
         for line in values
     )
+
+
+def expand_task_occurrences(task, month_start, month_end):
+    due_date_raw = task.get('due_date')
+    if not due_date_raw:
+        return []
+
+    try:
+        start_date = date.fromisoformat(due_date_raw)
+    except ValueError:
+        return []
+
+    recurrence_type = (task.get('recurrence_type') or '').strip().lower()
+    recurrence_interval = max(int(task.get('recurrence_interval') or 1), 1)
+    span_days = max(int(task.get('span_days') or 1), 1)
+
+    occurrences = []
+    seen = set()
+
+    def add_occurrence(current_date):
+        if month_start <= current_date <= month_end and current_date not in seen:
+            occurrences.append({'date': current_date, 'task_id': task.get('id')})
+            seen.add(current_date)
+
+    if recurrence_type in {'weekly', 'monthly'}:
+        if recurrence_type == 'weekly':
+            cursor = start_date
+            while cursor <= month_end:
+                add_occurrence(cursor)
+                cursor += timedelta(days=7 * recurrence_interval)
+        elif recurrence_type == 'monthly':
+            cursor = start_date
+            while cursor <= month_end:
+                add_occurrence(cursor)
+                year = cursor.year + ((cursor.month - 1 + recurrence_interval) // 12)
+                month = (cursor.month - 1 + recurrence_interval) % 12 + 1
+                try:
+                    cursor = date(year, month, min(cursor.day, 28))
+                except ValueError:
+                    cursor = date(year, month, 28)
+                if cursor < start_date:
+                    cursor = start_date
+
+        if span_days > 1:
+            expanded = []
+            for occurrence in occurrences:
+                current = occurrence['date']
+                for offset in range(span_days):
+                    target = current + timedelta(days=offset)
+                    if month_start <= target <= month_end:
+                        expanded.append({'date': target, 'task_id': task.get('id')})
+            occurrences = []
+            seen.clear()
+            for occurrence in expanded:
+                if occurrence['date'] not in seen:
+                    occurrences.append(occurrence)
+                    seen.add(occurrence['date'])
+        return occurrences
+
+    current = start_date
+    while current <= month_end and current <= start_date + timedelta(days=span_days - 1):
+        add_occurrence(current)
+        current += timedelta(days=1)
+
+    if span_days > 1:
+        occurrence_dates = []
+        for offset in range(span_days):
+            target = start_date + timedelta(days=offset)
+            if month_start <= target <= month_end:
+                occurrence_dates.append(target)
+        return [{'date': day, 'task_id': task.get('id')} for day in occurrence_dates]
+
+    return occurrences
 
 
 def get_weather_forecast(zip_code='23337', latitude=WEATHER_LATITUDE, longitude=WEATHER_LONGITUDE):
@@ -304,12 +386,30 @@ def dashboard():
     for task in tasks:
         task['is_complete'] = task_is_complete(task)
 
+    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(display_month.year, display_month.month)
+    month_start = month_days[0][0]
+    month_end = month_days[-1][-1]
+
     tasks_by_date = {}
     for task in tasks:
-        if task.get('due_date'):
+        if not task.get('due_date'):
+            continue
+        occurrences = expand_task_occurrences(task, month_start, month_end)
+        if not occurrences:
             tasks_by_date.setdefault(task['due_date'], []).append(task)
+            continue
 
-    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(display_month.year, display_month.month)
+        for occurrence in occurrences:
+            date_key = occurrence['date'].isoformat()
+            display_task = dict(task)
+            display_task['occurrence_date'] = date_key
+            tasks_by_date.setdefault(date_key, []).append(display_task)
+
+    task_count = {}
+    for task in tasks:
+        task_key = task.get('id')
+        if task_key is not None:
+            task_count[task_key] = sum(1 for day_items in tasks_by_date.values() for item in day_items if item.get('id') == task_key)
     prev_month = shift_month(display_month, -1)
     next_month = shift_month(display_month, 1)
     today = date.today()
@@ -391,6 +491,9 @@ def add_task():
     priority = request.form.get('priority', 'Medium')
     notes = request.form.get('notes', '').strip()
     subtasks = request.form.get('subtasks', '').strip()
+    recurrence_type = (request.form.get('recurrence_type') or '').strip().lower()
+    recurrence_interval = max(int(request.form.get('recurrence_interval') or 1), 1)
+    span_days = max(int(request.form.get('span_days') or 1), 1)
 
     if not title:
         flash('Task title is required.')
@@ -399,10 +502,10 @@ def add_task():
     with get_db() as conn:
         conn.execute(
             '''
-            INSERT INTO tasks (user_id, title, description, due_date, reminder, priority, notes, subtasks, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            INSERT INTO tasks (user_id, title, description, due_date, reminder, priority, notes, subtasks, recurrence_type, recurrence_interval, span_days, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             ''',
-            (current_user.id, title, description, due_date, reminder, priority, notes, subtasks),
+            (current_user.id, title, description, due_date, reminder, priority, notes, subtasks, recurrence_type, recurrence_interval, span_days),
         )
     flash('Task added successfully.')
     return redirect(url_for('dashboard'))
@@ -440,14 +543,17 @@ def update_task(task_id):
         priority = request.form.get('priority', existing['priority'])
         notes = request.form.get('notes', existing['notes'] or '').strip()
         subtasks = request.form.get('subtasks', existing['subtasks'] or '').strip()
+        recurrence_type = (request.form.get('recurrence_type') or existing['recurrence_type'] or '').strip().lower()
+        recurrence_interval = max(int(request.form.get('recurrence_interval') or existing['recurrence_interval'] or 1), 1)
+        span_days = max(int(request.form.get('span_days') or existing['span_days'] or 1), 1)
 
         conn.execute(
             '''
             UPDATE tasks
-            SET title = ?, description = ?, due_date = ?, reminder = ?, priority = ?, notes = ?, subtasks = ?
+            SET title = ?, description = ?, due_date = ?, reminder = ?, priority = ?, notes = ?, subtasks = ?, recurrence_type = ?, recurrence_interval = ?, span_days = ?
             WHERE id = ? AND user_id = ?
             ''',
-            (title, description, due_date, reminder, priority, notes, subtasks, task_id, current_user.id),
+            (title, description, due_date, reminder, priority, notes, subtasks, recurrence_type, recurrence_interval, span_days, task_id, current_user.id),
         )
 
     flash('Task updated successfully.')
