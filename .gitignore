@@ -2,6 +2,9 @@ __pycache__/
 .pytest_cache/
 *.pyc
 calendar.db
+calendar.db-journal
+calendar.db-wal
+calendar.db-shm
 venv/
 .venv/
 .env

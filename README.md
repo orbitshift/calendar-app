@@ -67,6 +67,37 @@ echo 'export CALENDAR_DB_PATH=/home/pi/calendar-data/calendar.db' >> ~/.bashrc
 source ~/.bashrc
 ```
 
+## Preserve an existing database before pulling the tracking fix
+
+Git previously tracked `calendar.db` even though it was listed in `.gitignore`.
+The update that removes it from Git can delete the repository copy on the first
+pull. Stop the app and preserve your live database outside the checkout before
+pulling. From the repository directory on the Pi, run:
+
+```bash
+mkdir -p "$HOME/calendar-data"
+cp -i calendar.db "$HOME/calendar-data/calendar.db"
+cp -i calendar.db "$HOME/calendar-data/calendar-backup-$(date +%Y%m%d-%H%M%S).db"
+```
+
+Confirm both copies succeeded before continuing. If the external database already
+exists, keep it and choose a different backup filename rather than overwriting it.
+After backing up, restore the tracked repository copy so local database changes
+do not block the pull:
+
+```bash
+git restore -- calendar.db
+git pull
+export CALENDAR_DB_PATH="$HOME/calendar-data/calendar.db"
+python3 app.py
+```
+
+Set `CALENDAR_DB_PATH` in the app's actual startup configuration as well (for
+example, the systemd service environment if it runs as a service). A shell export
+alone does not configure an existing service. Future pulls will leave this
+external database alone. On Windows, use the same process with a stopped app,
+copies outside the repository, and the PowerShell environment setting above.
+
 ## Notes
 
 - The app will create the parent folder for the database path automatically if needed.
