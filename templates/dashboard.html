@@ -457,6 +457,24 @@
     const modal = document.getElementById('calendar-modal');
     const taskModal = document.getElementById('task-detail-modal');
     const estClock = document.getElementById('est-clock');
+    const loadedDay = new Date().toDateString();
+    const viewingCurrentMonth = {{ (display_month.year == today.year and display_month.month == today.month) | tojson }};
+    let refreshingCalendar = false;
+
+    function refreshCalendarForNewDay() {
+      if (refreshingCalendar || document.hidden || new Date().toDateString() === loadedDay) return;
+      // Let the user finish editing before replacing the page.
+      if (modal.style.display === 'flex' || taskModal.style.display === 'flex') return;
+      refreshingCalendar = true;
+      const nextUrl = new URL(window.location.href);
+      if (viewingCurrentMonth) nextUrl.searchParams.delete('month');
+      window.location.replace(nextUrl.href);
+    }
+
+    setInterval(refreshCalendarForNewDay, 30000);
+    window.addEventListener('focus', refreshCalendarForNewDay);
+    window.addEventListener('pageshow', refreshCalendarForNewDay);
+    document.addEventListener('visibilitychange', refreshCalendarForNewDay);
 
     function updateEstClock() {
       const now = new Date();
